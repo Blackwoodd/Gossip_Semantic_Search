@@ -15,11 +15,3 @@ Pour exécuter ce projet, il est nécessaire d'installer les bibliothèques util
 
 ```sh
 pip install Flask sentence-transformers scikit-learn feedparser
-
-## Lancer l'app
-```sh
-python app.py
-
-## Lancer le test
-```sh
-python search_test.py
