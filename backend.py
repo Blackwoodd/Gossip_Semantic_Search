@@ -1,31 +1,48 @@
 from sentence_transformers import SentenceTransformer
 from sklearn.metrics.pairwise import cosine_similarity
-from extract_rss import get_articles
 import json
+from extract_rss import get_articles
 
 model = SentenceTransformer('paraphrase-MiniLM-L6-v2')
 
-# Load pre-generated embeddings from JSON file
 def load_embeddings():
-    with open('data/embeddings.json', 'r') as file:
-        # Loads the content of the JSON file and stores it in 'embeddings_data'.
-        embeddings_data = json.load(file)
+    try:
+        with open('data/embeddings.json', 'r') as file:
+            embeddings_data = json.load(file)
+        
+        embeddings = [item['embedding'] for item in embeddings_data]
+        titles = [item['title'] for item in embeddings_data]
 
-    embeddings = [item['embedding'] for item in embeddings_data]
-    titles = [item['title'] for item in embeddings_data]
-
-    return embeddings, titles, embeddings_data
-
+        return embeddings, titles, embeddings_data
+    except FileNotFoundError:
+        return [], [], []
 
 # Transforming the request into embedding
 def create_query_embedding(query):
     return model.encode([query])
 
-def search_similar_articles(query):
-    #Call function to update JSON file with latest articles (drawback: slows down code)
-    #To improve, create an independent script to upldat ethe JSON file
-    get_articles()
+# Update embeddings and save articles in a JSON file
+def update_embeddings():
+    articles = get_articles()
+    
+    embeddings_data = []
+    for article in articles:
+        article_embedding = model.encode(article['content'])
+        embeddings_data.append({
+            'title': article['title'],
+            'link': article['url'],
+            'embedding': article_embedding.tolist()
+        })
+    
+    with open('data/embeddings.json', 'w') as file:
+        json.dump(embeddings_data, file)
+    
+    print("Embedding file successfully updated.")
 
+def search_similar_articles(query):
+    # Call function to update JSON file with latest articles (drawback: slows down code)
+    #To improve, create an independent script to upldat ethe JSON file
+    update_embeddings()
 
     query_embedding = create_query_embedding(query)
     
@@ -40,7 +57,7 @@ def search_similar_articles(query):
     results = []
     for i in top_indices:
         similarity_score = similarities[0][i]
-        if similarity_score > 0.5:
+        if similarity_score > 0.4:
             result = {
                 'title': titles[i],
                 'link': embeddings_data[i]['link'],
@@ -49,7 +66,6 @@ def search_similar_articles(query):
             results.append(result)
 
     if not results:
-        return [{"title": "Aucun article pertinent trouvé.", "link": "#", "similarity_score": 0}]
+        return [{"title": "No relevant articles found.", "link": "#", "similarity_score": 0}]
 
     return results
-
